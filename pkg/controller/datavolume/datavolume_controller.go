@@ -2,6 +2,7 @@ package datavolume
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	comv1alpha1 "github.com/jw3/example-operator/pkg/apis/com/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -53,13 +54,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner DataVolume
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &comv1alpha1.DataVolume{},
-	})
-	if err != nil {
-		return err
-	}
+	//err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	//	IsController: true,
+	//	OwnerType:    &comv1alpha1.DataVolume{},
+	//})
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }
@@ -101,52 +102,49 @@ func (r *ReconcileDataVolume) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	// Define a new Pod object
-	pod := newPodForCR(instance)
+	pv := newPvForCR(instance)
 
 	// Set DataVolume instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, pv, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// Check if this Pv already exists
+	found := &corev1.PersistentVolume{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pv.Name, Namespace: pv.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		reqLogger.Info("Creating a new Pv", "Pv.Namespace", pv.Namespace, "Pv.Name", pv.Name)
+		err = r.client.Create(context.TODO(), pv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Pod created successfully - don't requeue
+		// Pv created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// Pv already exists - don't requeue
+	reqLogger.Info("Skip reconcile: Pv already exists", "Pv.Namespace", found.Namespace, "Pv.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *comv1alpha1.DataVolume) *corev1.Pod {
+// newPvForCR returns a new Pv
+func newPvForCR(cr *comv1alpha1.DataVolume) *corev1.PersistentVolume {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
-	return &corev1.Pod{
+	return &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
+			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels:    labels,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
+		Spec: corev1.PersistentVolumeSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("1Gi"),
 			},
 		},
 	}
