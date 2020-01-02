@@ -2,8 +2,6 @@ package datavolume
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	comv1alpha1 "github.com/jw3/example-operator/pkg/apis/com/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -145,7 +143,7 @@ func newPvForCR(cr *comv1alpha1.DataVolume) *corev1.PersistentVolumeClaim {
 			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("1Gi"),
+					corev1.ResourceStorage: cr.Spec.Size,
 				},
 			},
 		},

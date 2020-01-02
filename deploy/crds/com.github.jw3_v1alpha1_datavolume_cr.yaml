@@ -3,5 +3,5 @@ kind: DataVolume
 metadata:
   name: example-datavolume
 spec:
-  # Add fields here
-  size: 3
+  uri: "https://github.com/jw3/example-operator.git"
+  size: "100Mi"
