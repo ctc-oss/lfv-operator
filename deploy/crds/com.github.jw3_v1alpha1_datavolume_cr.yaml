@@ -1,0 +1,7 @@
+apiVersion: com.github.jw3/v1alpha1
+kind: DataVolume
+metadata:
+  name: example-datavolume
+spec:
+  # Add fields here
+  size: 3
