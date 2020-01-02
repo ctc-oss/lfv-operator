@@ -1,6 +1,6 @@
 example k8s operator
 ===
 
-manage persistent volumes based on config map
+simple operator example demonstrates managing a PVC according to a CRD
 
 https://github.com/operator-framework/operator-sdk#create-and-deploy-an-app-operator
