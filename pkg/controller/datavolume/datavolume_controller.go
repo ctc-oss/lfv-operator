@@ -109,11 +109,11 @@ func (r *ReconcileDataVolume) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Pv already exists
-	found := &corev1.PersistentVolume{}
+	// Check if this Pvc already exists
+	found := &corev1.PersistentVolumeClaim{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pv.Name, Namespace: pv.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pv", "Pv.Namespace", pv.Namespace, "Pv.Name", pv.Name)
+		reqLogger.Info("Creating a new Pvc", "Pvc.Namespace", pv.Namespace, "Pvc.Name", pv.Name)
 		err = r.client.Create(context.TODO(), pv)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -126,25 +126,27 @@ func (r *ReconcileDataVolume) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	// Pv already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pv already exists", "Pv.Namespace", found.Namespace, "Pv.Name", found.Name)
+	reqLogger.Info("Skip reconcile: Pvc already exists", "Pvc.Namespace", found.Namespace, "Pvc.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPvForCR returns a new Pv
-func newPvForCR(cr *comv1alpha1.DataVolume) *corev1.PersistentVolume {
+// newPvForCR returns a new Pvc
+func newPvForCR(cr *comv1alpha1.DataVolume) *corev1.PersistentVolumeClaim {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
-	return &corev1.PersistentVolume{
+	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels:    labels,
 		},
-		Spec: corev1.PersistentVolumeSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
-			Capacity: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse("1Gi"),
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("1Gi"),
+				},
 			},
 		},
 	}
