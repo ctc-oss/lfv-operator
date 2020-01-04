@@ -13,7 +13,7 @@ install() {
 
 uninstall() {
   kubectl delete datavolume --all
-  kubectl delete pod example-datavolume-cloner
+  kubectl delete job --all
   kubectl delete pvc --all
   kubectl delete ${operator}
 }
@@ -26,6 +26,30 @@ show() {
 
 watch() {
   /usr/bin/watch ${0} show
+}
+
+lsvol() {
+  kubectl apply -f - <<Y
+kind: Pod
+apiVersion: v1
+metadata:
+  name: vdb
+spec:
+  volumes:
+    - name: v
+      persistentVolumeClaim:
+        claimName: example-datavolume
+  containers:
+    - name: debugger
+      image: busybox
+      command: ['sleep', '3600']
+      volumeMounts:
+        - mountPath: "/data"
+          name: v
+Y
+  sleep 3
+  kubectl exec vdb -it -- ls /data
+  kubectl delete pod vdb
 }
 
 "$@"
