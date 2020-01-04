@@ -148,6 +148,7 @@ func newPvForCR(cr *comv1alpha1.DataVolume) *corev1.PersistentVolumeClaim {
 }
 
 func clonerPodForCR(cr *comv1alpha1.DataVolume) *batch1.Job {
+	var jobTTL int32 = 90
 	labels := map[string]string{
 		"app": cr.Name,
 	}
@@ -158,6 +159,7 @@ func clonerPodForCR(cr *comv1alpha1.DataVolume) *batch1.Job {
 			Labels:       labels,
 		},
 		Spec: batch1.JobSpec{
+			TTLSecondsAfterFinished: &jobTTL,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyOnFailure,
