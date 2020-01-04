@@ -13,6 +13,7 @@ install() {
 
 uninstall() {
   kubectl delete datavolume --all
+  kubectl delete pod example-datavolume-cloner
   kubectl delete pvc --all
   kubectl delete ${operator}
 }
@@ -24,7 +25,7 @@ show() {
 }
 
 watch() {
-  /usr/bin/watch ./please.sh show
+  /usr/bin/watch ${0} show
 }
 
 "$@"

@@ -100,30 +100,35 @@ func (r *ReconcileDataVolume) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	// Define a new Pod object
-	pv := newPvForCR(instance)
+	pvc := newPvForCR(instance)
+	cloner := clonerPodForCR(instance)
 
 	// Set DataVolume instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pv, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, pvc, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Check if this Pvc already exists
 	found := &corev1.PersistentVolumeClaim{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pv.Name, Namespace: pv.Namespace}, found)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pvc", "Pvc.Namespace", pv.Namespace, "Pvc.Name", pv.Name)
-		err = r.client.Create(context.TODO(), pv)
+		reqLogger.Info("Creating a new Pvc", "Pvc.Namespace", pvc.Namespace, "Pvc.Name", pvc.Name)
+		err = r.client.Create(context.TODO(), pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Pv created successfully - don't requeue
+		// Pvc created successfully - don't requeue
+		err = r.client.Create(context.TODO(), cloner)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create cloner")
+		}
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Pv already exists - don't requeue
+	// Pvc already exists - don't requeue
 	reqLogger.Info("Skip reconcile: Pvc already exists", "Pvc.Namespace", found.Namespace, "Pvc.Name", found.Name)
 	return reconcile.Result{}, nil
 }
@@ -144,6 +149,44 @@ func newPvForCR(cr *comv1alpha1.DataVolume) *corev1.PersistentVolumeClaim {
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: cr.Spec.Size,
+				},
+			},
+		},
+	}
+}
+
+func clonerPodForCR(cr *comv1alpha1.DataVolume) *corev1.Pod {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-cloner",
+			Namespace: cr.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{
+					Name: cr.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: cr.Name,
+						},
+					},
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:    "cloner",
+					Image:   "centos/python-36-centos7",
+					Command: []string{"git", "clone", cr.Spec.Uri, "/opt/app-root/mount"},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      cr.Name,
+							MountPath: "/opt/app-root/mount",
+						},
+					},
 				},
 			},
 		},
