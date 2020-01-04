@@ -3,6 +3,7 @@ package datavolume
 import (
 	"context"
 	comv1alpha1 "github.com/jw3/example-operator/pkg/apis/com/v1alpha1"
+	batch1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,36 +156,41 @@ func newPvForCR(cr *comv1alpha1.DataVolume) *corev1.PersistentVolumeClaim {
 	}
 }
 
-func clonerPodForCR(cr *comv1alpha1.DataVolume) *corev1.Pod {
+func clonerPodForCR(cr *comv1alpha1.DataVolume) *batch1.Job {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
-	return &corev1.Pod{
+	return &batch1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-cloner",
-			Namespace: cr.Namespace,
-			Labels:    labels,
+			GenerateName: cr.Name + "-cloner",
+			Namespace:    cr.Namespace,
+			Labels:       labels,
 		},
-		Spec: corev1.PodSpec{
-			Volumes: []corev1.Volume{
-				{
-					Name: cr.Name,
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: cr.Name,
+		Spec: batch1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+					Volumes: []corev1.Volume{
+						{
+							Name: cr.Name,
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: cr.Name,
+								},
+							},
 						},
 					},
-				},
-			},
-			Containers: []corev1.Container{
-				{
-					Name:    "cloner",
-					Image:   "centos/python-36-centos7",
-					Command: []string{"git", "clone", cr.Spec.Uri, "/opt/app-root/mount"},
-					VolumeMounts: []corev1.VolumeMount{
+					Containers: []corev1.Container{
 						{
-							Name:      cr.Name,
-							MountPath: "/opt/app-root/mount",
+							Name:    "cloner",
+							Image:   "centos/python-36-centos7",
+							Command: []string{"git", "clone", "-v", cr.Spec.Uri, "/opt/app-root/mount"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      cr.Name,
+									MountPath: "/opt/app-root/mount",
+								},
+							},
 						},
 					},
 				},
