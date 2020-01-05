@@ -11,12 +11,13 @@ import (
 
 // DataVolumeSpec defines the desired state of DataVolume
 type DataVolumeSpec struct {
-	Uri string `json:"uri"`
+	Uri  string            `json:"uri"`
 	Size resource.Quantity `json:"size"`
 }
 
 // DataVolumeStatus defines the observed state of DataVolume
 type DataVolumeStatus struct {
+	Ready bool `json:"ready"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

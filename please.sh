@@ -20,6 +20,8 @@ uninstall() {
 
 show() {
   kubectl get deploy
+  kubectl get pods
+  kubectl get jobs
   kubectl get datavolume
   kubectl get pvc
 }

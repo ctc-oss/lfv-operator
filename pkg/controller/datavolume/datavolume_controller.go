@@ -45,6 +45,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &batch1.Job{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &comv1alpha1.DataVolume{},
+	})
+	if err != nil {
+		return err
+	}
+
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner DataVolume
 	//err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
@@ -91,11 +99,8 @@ func (r *ReconcileDataVolume) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
+	// Define a new pvc
 	pvc := newPvForCR(instance)
-	cloner := clonerPodForCR(instance)
-
-	// Set DataVolume instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pvc, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -109,18 +114,43 @@ func (r *ReconcileDataVolume) Reconcile(request reconcile.Request) (reconcile.Re
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
 
-		// Pvc created successfully - don't requeue
+	// Define a new cloner job
+	cloner := clonerPodForCR(instance)
+	if err := controllerutil.SetControllerReference(instance, cloner, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this Job already exists
+	foundJob := &batch1.Job{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cloner.Name, Namespace: cloner.Namespace}, foundJob)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Cloner", "Namespace", pvc.Namespace, "Name", pvc.Name)
 		err = r.client.Create(context.TODO(), cloner)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create cloner")
+			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Pvc already exists - don't requeue
+	// update status
+	if !instance.Status.Ready {
+		reqLogger.Info("Checking instance status")
+		if foundJob.Status.Succeeded > 0 {
+			reqLogger.Info("Updated status")
+			instance.Status = comv1alpha1.DataVolumeStatus{Ready: true}
+			err = r.client.Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	}
+
 	reqLogger.Info("Skip reconcile: Pvc already exists", "Pvc.Namespace", found.Namespace, "Pvc.Name", found.Name)
 	return reconcile.Result{}, nil
 }
@@ -154,9 +184,9 @@ func clonerPodForCR(cr *comv1alpha1.DataVolume) *batch1.Job {
 	}
 	return &batch1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: cr.Name + "-cloner",
-			Namespace:    cr.Namespace,
-			Labels:       labels,
+			Name:      cr.Name + "-cloner",
+			Namespace: cr.Namespace,
+			Labels:    labels,
 		},
 		Spec: batch1.JobSpec{
 			TTLSecondsAfterFinished: &jobTTL,

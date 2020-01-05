@@ -10,8 +10,12 @@ spec:
     plural: datavolumes
     singular: datavolume
   scope: Namespaced
-  subresources:
-    status: {}
+#
+# the status will not updatewithout removing the following
+# https://github.com/fabric8io/kubernetes-client/issues/1548#issuecomment-495598904
+#  subresources:
+#    status: {}
+#
   validation:
     openAPIV3Schema:
       description: DataVolume is the Schema for the datavolumes API
