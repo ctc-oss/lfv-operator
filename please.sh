@@ -12,9 +12,10 @@ install() {
 }
 
 uninstall() {
-  kubectl delete datavolume --all
+  kubectl delete all -l app=minio
   kubectl delete job --all
   kubectl delete pvc --all
+  kubectl delete datavolume --all
   kubectl delete ${operator}
 }
 
@@ -30,28 +31,78 @@ watch() {
   /usr/bin/watch ${0} show
 }
 
-lsvol() {
+s3() {
   kubectl apply -f - <<Y
-kind: Pod
-apiVersion: v1
+---
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: vdb
+  name: minio
+  labels:
+    app: minio
 spec:
-  volumes:
-    - name: v
-      persistentVolumeClaim:
-        claimName: example-datavolume
-  containers:
-    - name: debugger
-      image: busybox
-      command: ['sleep', '3600']
-      volumeMounts:
-        - mountPath: "/data"
-          name: v
+  selector:
+    matchLabels:
+      app: minio
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: example-datavolume
+      containers:
+      - name: minio
+        volumeMounts:
+        - name: data
+          mountPath: "/data"
+        image: minio/minio
+        args:
+        - server
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: "minio"
+        - name: MINIO_SECRET_KEY
+          value: "minio123"
+        ports:
+        - containerPort: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  labels:
+    app: minio
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+  selector:
+    app: minio
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: minio
+  labels:
+    app: minio
+spec:
+  rules:
+  - host: lnx-d4025
+    http:
+      paths:
+      - path: /minio
+        backend:
+          serviceName: minio
+          servicePort: 9000
 Y
-  sleep 3
-  kubectl exec vdb -it -- ls /data
-  kubectl delete pod vdb
 }
 
 "$@"
