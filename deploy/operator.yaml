@@ -16,7 +16,7 @@ spec:
       containers:
         - name: example-operator
           # Replace this with the built image name
-          image: jwiii/example-operator
+          image: ctcoss/example-operator
           command:
           - example-operator
           imagePullPolicy: Always

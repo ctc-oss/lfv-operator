@@ -1,9 +1,7 @@
-example k8s operator
+Git LFS Volume Operator (lfv-operator)
 ===
 
-operator example demonstrating managing a PVC according to a CRD
-
-https://github.com/operator-framework/operator-sdk#create-and-deploy-an-app-operator
+Operator responsible for managing PVCs according to a CRD storage specification.
 
 ### init
 - `operator-sdk new example-operator --repo github.com/jw3/example-operator`
@@ -11,8 +9,8 @@ https://github.com/operator-framework/operator-sdk#create-and-deploy-an-app-oper
 - `operator-sdk add controller --api-version=github.com/jw3/example-operator --kind=DataVolume`
 
 ### build
-- `operator-sdk build jwiii/example-operator`
-- `docker push jwiii/example-operator`
+- `operator-sdk build ctcoss/example-operator`
+- `docker push ctcoss/example-operator`
 
 ### run
 - `./please.sh install`
@@ -20,3 +18,6 @@ https://github.com/operator-framework/operator-sdk#create-and-deploy-an-app-oper
 
 ### addd-on
 - `./please.sh s3`
+
+### reference
+- https://github.com/operator-framework/operator-sdk#create-and-deploy-an-app-operator
